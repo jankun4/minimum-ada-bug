@@ -1,4 +1,4 @@
-#Steps to reproduce
+# Steps to reproduce
 
 1. `git clone https://github.com/jankun4/minimum-ada-bug.git`
 2. `cd minimum-ada-bug`
