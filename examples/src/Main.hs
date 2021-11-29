@@ -37,7 +37,7 @@ main = do
     _ -> putStrLn "wrong args"
 
 emulatorCfg :: EmulatorConfig
-emulatorCfg = EmulatorConfig (Left $ Map.fromList ([(knownWallet i, v) | i <- [1 .. 4]])) def def
+emulatorCfg = EmulatorConfig (Left $ Map.fromList ([(knownWallet i, v) | i <- [1 .. 1]])) def def
       where
         v = Ada.lovelaceValueOf 100_000_000 <> mconcat (map (\(symbol,tokenName') -> Value.singleton symbol tokenName' 100_000_000) customSymbolsAndTokens)
 
@@ -59,7 +59,6 @@ defaultShowEvent = \case
       render :: Pretty a => a -> String
       render = renderString . layoutPretty defaultLayoutOptions . pretty
 
-
 customTraceConfig :: TraceConfig
 customTraceConfig =
   TraceConfig
@@ -67,11 +66,9 @@ customTraceConfig =
       outputHandle = stdout
     }
 
-
-
 exampleTrace :: Integer -> Bool -> EmulatorTrace ()
 exampleTrace adaAmount putAnother = do
   h1 <- activateContractWallet (knownWallet 1) start
   void $ callEndpoint @"start" h1 (adaAmount, putAnother)
-  _ <- waitNSlots 1
+  _ <- waitNSlots 3
   return ()

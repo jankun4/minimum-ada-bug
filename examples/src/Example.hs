@@ -1,3 +1,4 @@
+{-# LANGUAGE  NumericUnderscores        #-}
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveAnyClass             #-}
@@ -40,8 +41,9 @@ import           Plutus.Contract
 import qualified Plutus.Contract.Typed.Tx as Typed
 import           Plutus.Contract.Trace as X
 import qualified PlutusTx
-import           PlutusTx.Prelude      hiding (pure, (<$>))
+import           PlutusTx.Prelude      hiding ((<>), pure, (<$>))
 import qualified Prelude               as Haskell
+import           Data.Semigroup
 import           Plutus.Trace.Emulator (EmulatorTrace)
 import qualified Plutus.Trace.Emulator as Trace
 import           Data.Text
@@ -68,14 +70,25 @@ exampleAddress = Ledger.scriptAddress exampleValidator
 
 start :: Promise () GameSchema Text ()
 start = endpoint @"start" $ \(adaAmount, putAnotherCoin) -> do
-    let tx1      = Constraints.mustPayToTheScript () (assetClassValue (AssetClass ("ff", "some coin")) 100 <> assetClassValue (AssetClass ("","")) adaAmount)
-    mkTxConstraints (Constraints.typedValidatorLookups exampleInstance) tx1 >>= void . submitUnbalancedTx. Constraints.adjustUnbalancedTx
-    waitNSlots 1
+    let
+      adaPerTx = 4_000_000
+      tx1      = Constraints.mustPayToTheScript () $
+                    assetClassValue (AssetClass ("ff", "some coin")) 100 <>
+                    assetClassValue (AssetClass ("","")) adaPerTx
+      lookups1 = Constraints.typedValidatorLookups exampleInstance
+      txF = void . submitUnbalancedTx . Constraints.adjustUnbalancedTx
+    mkTxConstraints lookups1 tx1 >>= txF
+    
+    void $ waitNSlots 1
+    
     utxos <- utxosAt exampleAddress
-    let anotherCoinTx = Constraints.mustPayToTheScript () (assetClassValue (AssetClass ("ee", "some other coin")) 200) 
-    let tx2      = Typed.collectFromScript utxos () <> (if putAnotherCoin then anotherCoinTx else mempty)
-    let lookups  = Constraints.typedValidatorLookups exampleInstance
-                Haskell.<> Constraints.otherScript exampleValidator 
-                Haskell.<> Constraints.unspentOutputs utxos
-    mkTxConstraints lookups tx2 >>= void . submitUnbalancedTx. Constraints.adjustUnbalancedTx
+    let
+      anotherCoinTx = Constraints.mustPayToTheScript () $
+                      assetClassValue (AssetClass ("ee", "some other coin")) 100
+      tx2      = Typed.collectFromScript utxos () <>
+                 anotherCoinTx 
+      lookups  = Constraints.typedValidatorLookups exampleInstance 
+                <> Constraints.otherScript exampleValidator 
+                <> Constraints.unspentOutputs utxos
+    mkTxConstraints lookups tx2 >>= txF
     return ()
